@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: kakao_auth
+  config:
+    import: optional:file:.env[.properties]
+
+kakao:
+  client_id: ${REST_API_KEY}
+  redirect_uri: http://localhost:8080/callback
