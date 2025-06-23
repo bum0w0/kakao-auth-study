@@ -1,7 +1,7 @@
 ![스크린샷 2025-06-23 오후 5 38 21](https://github.com/user-attachments/assets/4caf8b36-85b7-45d8-bfae-fb4bcb7015c2)
 
 > 카카오 공식 문서를 기반으로 로그인 연동 절차를 이해하고 적용하는 실습 코드입니다. <br>
-> Spring Boot 3.5.3 환경에서의 구현을 기반으로 작성되었으며, 클라이언트는 Thymeleaf 템플릿 엔진을 사용해 구성하였습니다.
+> Spring Boot 3.5.3 환경에서의 구현을 기반으로 작성되었으며, 클라이언트는 Thymeleaf 템플릿 엔진을 사용해 구성했습니다.
 
 > **https://developers.kakao.com/product/kakaoLogin**
 
@@ -73,7 +73,7 @@ public class KakaoLoginController {
 
 ### 4. 토큰 교환
 - 서버는 이 인가 코드를 카카오 토큰 발급 엔드포인트에 전달하여, 액세스 토큰과 리프레시 토큰을 발급받습니다.
-- `https://kauth.kakao.com/oauth/token` URL로 POST 요청을 보내 토큰 발급 요청 (이후 이 토큰으로 사용자 정보 요청)
+- `https://kauth.kakao.com/oauth/token` URL로 POST 요청을 보내 토큰 발급 요청 (추후 토큰으로 사용자 정보 요청)
 - 카카오 측 응답 파라미터를 참고하여 DTO 클래스 생성 후 매핑 필요
 
 > https://developers.kakao.com/docs/latest/ko/kakaologin/rest-api#request-token-response-body
