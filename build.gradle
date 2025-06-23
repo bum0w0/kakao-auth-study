@@ -36,6 +36,9 @@ dependencies {
 	// Thymeleaf dependencies
 	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
 
+	// macOS에서 비동기 HTTP 클라이언트를 사용할 때 DNS 해석에 문제가 있을 수 있다는 경고 해결
+	runtimeOnly "io.netty:netty-resolver-dns-native-macos:4.1.109.Final:osx-aarch_64"
+
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
