@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import lombok.extern.slf4j.Slf4j;
+import study.kakao_auth.dto.KakaoUserInfoResponseDto;
 import study.kakao_auth.service.KakaoService;
 
 @Slf4j
@@ -22,6 +23,8 @@ public class KakaoLoginController {
         log.info("카카오로부터 받아온 인가 코드: {}", code);
 
         String accessToken = kakaoService.getAccessTokenFromKakao(code);
+
+        KakaoUserInfoResponseDto userInfo = kakaoService.getUserInfo(accessToken);
 
         return new ResponseEntity<>(HttpStatus.OK);
     }
