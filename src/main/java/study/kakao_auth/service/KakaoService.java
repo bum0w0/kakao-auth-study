@@ -3,9 +3,12 @@ package study.kakao_auth.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import study.kakao_auth.dto.KakaoTokenResponseDto;
+import study.kakao_auth.dto.KakaoUserInfoResponseDto;
 
 import java.util.Objects;
 
@@ -15,6 +18,7 @@ import java.util.Objects;
 public class KakaoService {
 
     private final WebClient kakaoAuthWebClient;
+    private final WebClient kakaoApiWebClient;
 
     @Value("${kakao.client_id}")
     private String clientId;
@@ -39,6 +43,26 @@ public class KakaoService {
         log.info("[KakaoService] scope = {}", kakaoTokenResponseDto.getScope());
 
         return Objects.requireNonNull(kakaoTokenResponseDto).getAccessToken();
+    }
+
+    public KakaoUserInfoResponseDto getUserInfo(String accessToken) {
+        KakaoUserInfoResponseDto userInfo = kakaoApiWebClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .scheme("https")
+                        .path("/v2/user/me")
+                        .build(true))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+                .retrieve()
+                .bodyToMono(KakaoUserInfoResponseDto.class)
+                .block();
+
+        log.info("[KakaoService] Auth ID = {}", userInfo.getId());
+        log.info("[KakaoService] NickName = {}", userInfo.getKakaoAccount().getProfile().getNickName());
+        log.info("[KakaoService] ProfileImageUrl = {}", userInfo.getKakaoAccount().getProfile().getProfileImageUrl());
+        log.info("[KakaoService] Email = {}", userInfo.getKakaoAccount().getEmail());
+
+        return userInfo;
     }
 
 }
