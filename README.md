@@ -1,7 +1,7 @@
 ![스크린샷 2025-06-23 오후 5 38 21](https://github.com/user-attachments/assets/4caf8b36-85b7-45d8-bfae-fb4bcb7015c2)
 
 > 카카오 공식 문서를 기반으로 로그인 연동 절차를 이해하고 적용하는 실습 코드입니다. <br>
-> Spring Boot 3.5.3 환경에서의 구현을 기반으로 작성되었으며, 클라이언트는 Thymeleaf 템플릿 엔진을 사용해 구성했습니다.
+> Spring Boot 3.x 환경에서의 구현을 기반으로 작성되었으며, 클라이언트는 Thymeleaf 템플릿 엔진을 사용해 구성했습니다.
 
 > **https://developers.kakao.com/product/kakaoLogin**
 
@@ -74,9 +74,9 @@ public class KakaoLoginController {
 ### 4. 토큰 교환
 - 서버는 이 인가 코드를 카카오 토큰 발급 엔드포인트에 전달하여, 액세스 토큰과 리프레시 토큰을 발급받습니다.
 - `https://kauth.kakao.com/oauth/token` URL로 POST 요청을 보내 토큰 발급 요청 (추후 토큰으로 사용자 정보 요청)
-- 카카오 측 응답 파라미터를 참고하여 DTO 클래스 생성 후 매핑 필요
+- [카카오 측 응답 파라미터](https://developers.kakao.com/docs/latest/ko/kakaologin/rest-api#request-token-response-body)를 참고하여 DTO 클래스 생성 후 매핑 필요
 
-> https://developers.kakao.com/docs/latest/ko/kakaologin/rest-api#request-token-response-body
+> 
 
 ```java
 @Slf4j
@@ -116,6 +116,121 @@ public class KakaoService {
 
 ### 5. 사용자 정보 요청
 - 발급받은 액세스 토큰을 이용해 카카오 API에 사용자 정보를 요청할 수 있습니다.
+- 카카오로부터 제공되는 전체 응답 구조는 [해당 문서](https://developers.kakao.com/docs/latest/ko/kakaologin/rest-api#kakaoaccount)를 참고
+- 현재 서비스에서는 아래 3가지 항목에 대해서만 동의를 받고 있으며, 해당 항목만 DTO에 포함
+> 사용자가 동의하지 않은 항목은 null 이기 때문에 동의 여부에 따라 해당 필드가 존재하는지 확인 필요
+```java
+@Getter
+@NoArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class KakaoUserInfoResponseDto {
+
+    // 이메일, 닉네임, 프로필 이미지
+
+    @JsonProperty("id")
+    private Long id;
+
+    @JsonProperty("kakao_account")
+    private KakaoAccount kakaoAccount;
+
+    @Getter
+    @NoArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class KakaoAccount {
+
+        @JsonProperty("email")
+        private String email;
+
+        @JsonProperty("profile")
+        private Profile profile;
+
+        @Getter
+        @NoArgsConstructor
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        public static class Profile {
+
+            @JsonProperty("nickname")
+            private String nickname;
+
+            @JsonProperty("profile_image_url")
+            private String profileImageUrl;
+        }
+    }
+}
+```
+```java
+public KakaoUserInfoResponseDto getUserInfo(String accessToken) {
+    KakaoUserInfoResponseDto userInfo = kakaoApiWebClient.get()
+            .uri(uriBuilder -> uriBuilder
+                    .scheme("https")
+                    .path("/v2/user/me")
+                    .build(true))
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+            .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+            .retrieve()
+            .bodyToMono(KakaoUserInfoResponseDto.class)
+            .block();
+
+    log.info("[KakaoService] Auth ID = {}", userInfo.getId());
+    log.info("[KakaoService] NickName = {}", userInfo.getKakaoAccount().getProfile().getNickName());
+    log.info("[KakaoService] ProfileImageUrl = {}", userInfo.getKakaoAccount().getProfile().getProfileImageUrl());
+    log.info("[KakaoService] Email = {}", userInfo.getKakaoAccount().getEmail());
+
+    return userInfo;
+}
+```
+
+<br>
+
+**Postman API 테스트 결과 (개인정보 보호를 위해 식별 정보는 공개하지 않겠습니다.)**
+<img width="671" alt="스크린샷 2025-06-24 오후 11 46 31" src="https://github.com/user-attachments/assets/14566a92-df6d-4348-89e6-3929d5959c9e" />
+> 현재 로그인한 사용자의 정보를 불러오기
+
+- 사용자 정보 요청 성공 시, 응답 본문은 사용자 정보를 포함한 JSON 객체를 반환
+- [자세한 응답 본문](https://developers.kakao.com/docs/latest/ko/kakaologin/rest-api#req-user-info)
 
 ### 6. 서비스 로그인 처리
 - 가져온 사용자 정보를 기반으로 기존 회원 여부를 확인하고, 신규라면 회원가입, 기존 유저라면 로그인 처리를 합니다.
+
+> getUserInfo 메서드를 통해 카카오에서 받은 사용자 정보를 서버에서 받아왔으면, 이 정보를 활용해 실제 회원가입 또는 로그인 로직을 구현 (최종)
+
+**1. 사용자 정보 파싱**
+- 카카오에서 받은 JSON 응답을 DTO로 변환해 필요한 정보를 추출
+**2. 회원 데이터베이스 조회**
+- 추출한 kakaoId 또는 email을 기준으로 기존 회원인지 확인
+- 이미 가입된 회원이면 로그인 처리(세션 생성 또는 JWT 발급 등)
+**3. 신규 회원가입 처리**
+- 해당 사용자가 처음이라면, 회원 테이블에 정보를 저장하고 회원가입 절차를 마침
+**4. 로그인 완료 후 서비스 이용**
+- 로그인 성공 후 토큰을 발급하거나 세션에 사용자 정보를 저장해 서비스 접근을 허용합니다.
+
+> 예시 코드 스니펫
+```java
+public String processKakaoLogin(KakaoUserInfoResponseDto userInfo) {
+    Long kakaoId = userInfo.getId();
+    String email = userInfo.getKakaoAccount().getEmail();
+    String nickname = userInfo.getKakaoAccount().getProfile().getNickname();
+    String profileImageUrl = userInfo.getKakaoAccount().getProfile().getProfileImageUrl();
+
+    // 1. DB에서 카카오 ID로 사용자 조회
+    Optional<User> existingUser = userRepository.findByKakaoId(kakaoId);
+
+    User user;
+    if (existingUser.isPresent()) {
+        user = existingUser.get();
+        // 2. 기존 회원 로그인 처리
+    } else {
+        // 3. 신규 회원 가입
+        user = User.builder()
+                .kakaoId(kakaoId)
+                .email(email)
+                .nickname(nickname)
+                .profileImageUrl(profileImageUrl)
+                .build();
+        userRepository.save(user);
+    }
+
+    // 4. 로그인 토큰 발급 및 반환
+    return jwtTokenProvider.createToken(user.getUsername(), user.getRoles());
+}
+```
